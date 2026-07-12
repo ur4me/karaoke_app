@@ -8,6 +8,9 @@ import re
 import json
 import os
 
+# 스크립트가 있는 폴더 기준으로 파일을 찾도록 수정 (실행 위치와 무관하게 동작)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # ==========================================
 # 🎨 프론트엔드 (HTML + CSS + JS) 
 # ==========================================
@@ -64,12 +67,30 @@ HTML_CONTENT = """
             top: 0; left: 0; width: 100%; height: 100%;
             background-color: black;
             display: none;
+            align-items: center;
+            justify-content: center;
             z-index: 20;
         }
         .score-screen img {
             width: 100%; height: 100%;
             object-fit: cover;
             animation: fadeIn 0.5s ease-in-out;
+        }
+        /* 이미지 파일이 없을 때 대신 보여줄 화면 */
+        .score-fallback {
+            display: none;
+            text-align: center;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        .score-fallback .score-num {
+            font-size: 10rem; font-weight: 900; font-style: italic;
+            background: linear-gradient(90deg, #05d9e8 0%, #a67cff 50%, #ff2a6d 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 40px rgba(255, 42, 109, 0.35);
+        }
+        .score-fallback .score-label {
+            font-size: 1.6rem; font-weight: 800; color: var(--neon-cyan);
+            letter-spacing: 4px; margin-top: 10px;
         }
         @keyframes fadeIn {
             from { opacity: 0; }
@@ -202,7 +223,6 @@ HTML_CONTENT = """
     </style>
 </head>
 <body>
-    <!-- MP3 파일로 변경됨 -->
     <audio id="fanfareAudio" src="/fanfare.mp3" preload="auto"></audio>
 
     <div class="app-container">
@@ -216,7 +236,11 @@ HTML_CONTENT = """
             
             <!-- 점수 화면 -->
             <div id="scoreScreen" class="score-screen">
-                <img src="/image_d05c44.jpg" alt="100점 축하 화면">
+                <img id="scoreImg" src="/image_d05c44.jpg" alt="100점 축하 화면">
+                <div id="scoreFallback" class="score-fallback">
+                    <div class="score-num">100</div>
+                    <div class="score-label">PERFECT SCORE! 🎉</div>
+                </div>
             </div>
 
             <div id="player"></div>
@@ -268,11 +292,32 @@ HTML_CONTENT = """
         let player;
         let queue = [];
         let isPlayerIdle = true;
+        let isShowingScore = false;   // 점수 화면 표시 중 플래그 (중복 재생/스킵 방지)
         
         const fanfareAudio = document.getElementById('fanfareAudio');
 
+        // [수정] 이미지 미리 로드 → 점수 화면이 뜨는 순간 바로 보이도록
+        const preloadImg = new Image();
+        preloadImg.src = '/image_d05c44.jpg';
+
+        // [수정] 이미지 파일이 없으면(404) 대체 화면 표시
+        document.getElementById('scoreImg').addEventListener('error', function() {
+            this.style.display = 'none';
+            document.getElementById('scoreFallback').style.display = 'block';
+        });
+
+        // [수정] 진짜 오디오 잠금 해제: load()가 아니라 muted 상태로 play→pause를 해야
+        // 브라우저 자동재생 정책이 풀림
         document.body.addEventListener('click', function unlockAudio() {
-            fanfareAudio.load();
+            fanfareAudio.muted = true;
+            const p = fanfareAudio.play();
+            if (p !== undefined) {
+                p.then(() => {
+                    fanfareAudio.pause();
+                    fanfareAudio.currentTime = 0;
+                    fanfareAudio.muted = false;
+                }).catch(() => { fanfareAudio.muted = false; });
+            }
             document.body.removeEventListener('click', unlockAudio);
         }, { once: true });
 
@@ -284,13 +329,19 @@ HTML_CONTENT = """
         function onYouTubeIframeAPIReady() {
             player = new YT.Player('player', {
                 height: '100%', width: '100%', videoId: '',
-                playerVars: { 'autoplay': 1, 'controls': 1 },
+                // [수정] fs:0 → 유튜브 자체 전체화면 버튼 비활성화.
+                // 유튜브 자체 전체화면을 쓰면 iframe이 화면 전체를 덮어서
+                // 점수 화면이 절대 보이지 않음. 대신 앱의 ⛶ 전체화면 버튼 사용.
+                playerVars: { 'autoplay': 1, 'controls': 1, 'fs': 0, 'rel': 0 },
                 events: { 'onStateChange': onPlayerStateChange }
             });
         }
 
         function onPlayerStateChange(event) {
             if (event.data === YT.PlayerState.ENDED) {
+                // [수정] stopVideo() 호출로도 ENDED가 발생할 수 있으므로,
+                // 이미 점수 화면 중이거나 대기 상태면 무시 (중복 방지)
+                if (isShowingScore || isPlayerIdle) return;
                 isPlayerIdle = true;
                 showScoreScreen();
             } else if (event.data === YT.PlayerState.PLAYING) {
@@ -300,6 +351,7 @@ HTML_CONTENT = """
         }
 
         function showScoreScreen() {
+            isShowingScore = true;
             const scoreScreen = document.getElementById('scoreScreen');
             scoreScreen.style.display = 'flex';
             
@@ -311,6 +363,9 @@ HTML_CONTENT = """
 
             setTimeout(() => {
                 scoreScreen.style.display = 'none';
+                fanfareAudio.pause();
+                fanfareAudio.currentTime = 0;
+                isShowingScore = false;
                 playNextSong();
             }, 3000);
         }
@@ -364,7 +419,8 @@ HTML_CONTENT = """
         function reserveSong(id, title, thumbUrl) {
             queue.push({ id, title, thumb: thumbUrl });
             renderQueue();
-            if (isPlayerIdle) playNextSong();
+            // [수정] 점수 화면이 나오는 3초 동안 예약하면 곡이 겹쳐 재생되던 버그 방지
+            if (isPlayerIdle && !isShowingScore) playNextSong();
         }
 
         function playNextSong() {
@@ -452,9 +508,11 @@ HTML_CONTENT = """
         });
 
         document.getElementById('skipBtn').addEventListener('click', () => {
-            if (!isPlayerIdle && player && typeof player.stopVideo === 'function') {
-                player.stopVideo();
-                isPlayerIdle = true;
+            // [수정] 기존에는 stopVideo() 후 playNextSong()을 불렀는데,
+            // stopVideo()가 ENDED 이벤트를 추가로 발생시켜 곡이 두 개씩 건너뛰거나
+            // 점수 화면이 꼬이는 원인이 됨. loadVideoById가 알아서 교체하므로
+            // stopVideo 없이 바로 다음 곡으로 넘어감.
+            if (!isPlayerIdle && !isShowingScore) {
                 playNextSong(); 
             }
         });
@@ -481,7 +539,23 @@ HTML_CONTENT = """
 class RequestHandler(http.server.BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         pass
-        
+
+    def serve_static(self, filename, content_type):
+        """스크립트 폴더 기준으로 정적 파일 서빙 + 없으면 경고 출력"""
+        filepath = os.path.join(BASE_DIR, filename)
+        try:
+            with open(filepath, 'rb') as f:
+                data = f.read()
+            self.send_response(200)
+            self.send_header("Content-type", content_type)
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+        except FileNotFoundError:
+            print(f"⚠️  경고: '{filename}' 파일을 찾을 수 없습니다. 이 위치에 넣어주세요 → {filepath}")
+            self.send_response(404)
+            self.end_headers()
+
     def do_GET(self):
         if self.path == '/' or self.path == '':
             self.send_response(200)
@@ -490,28 +564,10 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(HTML_CONTENT.encode("utf-8"))
             
         elif self.path == '/image_d05c44.jpg':
-            try:
-                with open('image_d05c44.jpg', 'rb') as f:
-                    self.send_response(200)
-                    self.send_header("Content-type", "image/jpeg")
-                    self.end_headers()
-                    self.wfile.write(f.read())
-            except FileNotFoundError:
-                self.send_response(404)
-                self.end_headers()
+            self.serve_static('image_d05c44.jpg', 'image/jpeg')
 
-        # 라우트가 mp3로 변경됨
         elif self.path == '/fanfare.mp3':
-            try:
-                with open('fanfare.mp3', 'rb') as f:
-                    self.send_response(200)
-                    self.send_header("Content-type", "audio/mpeg")  # mpeg로 변경
-                    self.end_headers()
-                    self.wfile.write(f.read())
-            except FileNotFoundError:
-                print("경고: fanfare.mp3 파일을 찾을 수 없습니다.")
-                self.send_response(404)
-                self.end_headers()
+            self.serve_static('fanfare.mp3', 'audio/mpeg')
                 
         elif self.path.startswith('/search?q='):
             query = urllib.parse.unquote(self.path.split('q=')[1])
@@ -545,12 +601,23 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
             return []
 
 def run_server():
-    port = 8080
-    handler = RequestHandler
-    with socketserver.TCPServer(("", port), handler) as httpd:
-        print(f"\n🎤 STEVE KARAOKE 서버가 시작되었습니다! (MP3 지원 버전)")
-        print(f"👉 브라우저 접속: http://localhost:{port}\n")
-        threading.Timer(1.0, lambda: webbrowser.open(f"http://localhost:{port}")).start()
+    # Render는 PORT 환경변수로 포트를 지정해줌. 로컬에서는 8080 사용.
+    port = int(os.environ.get("PORT", 8080))
+    is_render = os.environ.get("RENDER") is not None
+
+    # 시작 시 필수 파일 존재 여부 미리 점검
+    for fname in ['image_d05c44.jpg', 'fanfare.mp3']:
+        if not os.path.exists(os.path.join(BASE_DIR, fname)):
+            print(f"⚠️  '{fname}' 파일이 없습니다! 이 파일을 다음 폴더에 넣어주세요: {BASE_DIR}")
+
+    # ThreadingTCPServer: 요청을 스레드로 처리해서 여러 접속/느린 요청에도 안 멈춤
+    socketserver.ThreadingTCPServer.allow_reuse_address = True
+    with socketserver.ThreadingTCPServer(("0.0.0.0", port), RequestHandler) as httpd:
+        print(f"\n🎤 STEVE KARAOKE 서버가 시작되었습니다! (Render 배포 대응 버전)")
+        print(f"👉 접속 주소: http://localhost:{port}\n")
+        # 로컬 실행일 때만 브라우저 자동 열기 (서버 환경에서는 의미 없음)
+        if not is_render:
+            threading.Timer(1.0, lambda: webbrowser.open(f"http://localhost:{port}")).start()
         httpd.serve_forever()
 
 if __name__ == "__main__":
