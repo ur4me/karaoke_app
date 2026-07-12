@@ -1,5 +1,9 @@
 # 🎤 STEVE KARAOKE
 
+🔗 **Live Demo**: [https://karaoke-app-vkff.onrender.com](https://karaoke-app-vkff.onrender.com) — already deployed and ready to use, no setup required.
+
+> Note: this is hosted on Render's free tier, so the first load after a period of inactivity may take a few seconds to spin up.
+
 A self-hosted karaoke web app that searches, queues, and continuously plays YouTube karaoke videos.
 When a song ends, a 100-point celebration screen and fanfare play for 3 seconds before automatically moving on to the next song.
 
