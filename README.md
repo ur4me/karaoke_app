@@ -1,69 +1,69 @@
 # 🎤 STEVE KARAOKE
 
-유튜브 노래방 영상을 검색·예약해서 연속 재생하는 셀프 노래방 웹 앱입니다.
-곡이 끝나면 3초간 100점 축하 화면과 팡파르가 재생된 뒤 자동으로 다음 곡으로 넘어갑니다.
+A self-hosted karaoke web app that searches, queues, and continuously plays YouTube karaoke videos.
+When a song ends, a 100-point celebration screen and fanfare play for 3 seconds before automatically moving on to the next song.
 
-파이썬 표준 라이브러리만으로 동작하며, 별도의 패키지 설치가 필요 없습니다.
+Runs on the Python standard library only — no external packages required.
 
-## ✨ 주요 기능
+## ✨ Features
 
-- **곡 검색 & 예약**: 가수/제목을 입력하면 유튜브 노래방 영상을 검색해 목록에 추가 (검색어에 "노래방"이 자동으로 붙음)
-- **예약 큐 관리**: 드래그 앤 드롭으로 순서 변경, 개별 곡 취소
-- **자동 연속 재생**: 곡이 끝나면 100점 화면(3초) + 팡파르 → 다음 곡 자동 재생
-- **다음 곡 스킵**: 재생 중 곡을 건너뛰기
-- **전체화면 모드**: 앱 우측 하단의 ⛶ 버튼 사용
-  - ⚠️ 유튜브 플레이어 자체의 전체화면은 점수 화면이 가려지는 문제 때문에 비활성화되어 있습니다. 반드시 앱의 전체화면 버튼을 사용하세요.
+- **Search & Reserve**: Type an artist or song title to search YouTube karaoke videos and add them to the queue (the keyword "노래방" / karaoke is appended automatically)
+- **Queue Management**: Reorder songs with drag and drop, or cancel individual songs
+- **Auto Continuous Play**: When a song ends, the 100-point screen (3 seconds) + fanfare play, then the next song starts automatically
+- **Skip**: Jump to the next song while one is playing
+- **Fullscreen Mode**: Use the ⛶ button at the bottom right of the app
+  - ⚠️ The YouTube player's own fullscreen button is disabled, because it would cover the score screen. Always use the app's fullscreen button instead.
 
-## 📁 파일 구성
+## 📁 Project Files
 
-| 파일 | 설명 |
+| File | Description |
 |---|---|
-| `steve_karaoke_render.py` | 메인 앱 (서버 + 프론트엔드, 로컬/Render 겸용) |
-| `image_d05c44.jpg` | 곡 종료 시 표시되는 100점 축하 이미지 |
-| `fanfare.mp3` | 100점 화면과 함께 재생되는 팡파르 효과음 |
-| `requirements.txt` | 빈 파일 (표준 라이브러리만 사용, Render 빌드용) |
+| `steve_karaoke_render.py` | Main app (server + frontend, works both locally and on Render) |
+| `image_d05c44.jpg` | 100-point celebration image shown when a song ends |
+| `fanfare.mp3` | Fanfare sound effect played with the score screen |
+| `requirements.txt` | Empty file (standard library only; needed for Render's build step) |
 
-> `image_d05c44.jpg` 또는 `fanfare.mp3`가 없어도 앱은 동작합니다. 이미지가 없으면 네온 스타일의 대체 화면("100 PERFECT SCORE!")이 표시되고, 서버 시작 시 터미널에 경고가 출력됩니다.
+> The app still works even if `image_d05c44.jpg` or `fanfare.mp3` is missing. Without the image, a neon-styled fallback screen ("100 PERFECT SCORE!") is shown instead, and a warning is printed to the terminal at server startup.
 
-## 🖥️ 로컬 실행
+## 🖥️ Running Locally
 
-요구 사항: Python 3.8 이상
+Requirements: Python 3.8+
 
 ```bash
-cd <프로젝트 폴더>
+cd <project folder>
 python3 steve_karaoke_render.py
 ```
 
-실행하면 브라우저가 자동으로 `http://localhost:8080`을 엽니다.
+Your browser will automatically open `http://localhost:8080`.
 
-- 포트를 바꾸려면: `PORT=9090 python3 steve_karaoke_render.py`
-- `Address already in use` 에러가 나면 기존 실행 중인 서버를 Ctrl+C로 종료 후 다시 실행하세요.
+- To use a different port: `PORT=9090 python3 steve_karaoke_render.py`
+- If you get an `Address already in use` error, stop the previously running server with Ctrl+C and run it again.
 
-## ☁️ Render 배포
+## ☁️ Deploying to Render
 
-1. 이 저장소를 GitHub에 push 합니다 (위 4개 파일 포함).
-2. [Render](https://render.com)에서 **New → Web Service** 생성 후 저장소 연결
-3. 설정:
+1. Push this repository to GitHub (including all four files above).
+2. On [Render](https://render.com), create a **New → Web Service** and connect the repository.
+3. Configure:
    - **Environment**: Python
-   - **Build Command**: `pip install -r requirements.txt` (기본값 그대로)
+   - **Build Command**: `pip install -r requirements.txt` (default is fine)
    - **Start Command**: `python steve_karaoke_render.py`
-4. 배포가 끝나면 Render가 발급한 URL로 접속
+4. Once deployed, open the URL Render provides.
 
-앱은 Render가 지정하는 `PORT` 환경변수를 자동으로 읽어 바인딩하며, `RENDER` 환경변수가 감지되면 브라우저 자동 열기를 건너뜁니다.
+The app automatically binds to the `PORT` environment variable set by Render, and skips opening a browser when the `RENDER` environment variable is detected.
 
-## ⚠️ 알려진 제약 사항
+## ⚠️ Known Limitations
 
-- **유튜브 검색 차단 가능성**: 검색은 유튜브 검색 페이지를 스크레이핑하는 방식입니다. Render 등 데이터센터 IP에서는 유튜브가 요청을 차단해 검색 결과가 비어 있을 수 있습니다. 이 경우 공식 YouTube Data API 기반으로 검색 로직을 교체해야 합니다.
-- **일부 영상 재생 불가**: 업로더가 외부 사이트 임베드를 막아둔 노래방 영상은 플레이어에서 재생되지 않습니다.
-- **기기 간 큐 공유 없음**: 예약 목록은 각 브라우저(기기) 안에만 존재합니다. 여러 기기가 같은 URL에 접속해도 각자 독립된 노래방으로 동작하며, "폰으로 예약 → TV에서 재생" 같은 공유는 지원하지 않습니다.
-- **첫 팡파르 재생**: 브라우저 자동재생 정책 때문에 페이지에서 한 번이라도 클릭(검색/예약 등)이 있어야 팡파르 소리가 재생됩니다. 일반적인 사용 흐름에서는 자연스럽게 해제됩니다.
+- **YouTube search may be blocked**: Search works by scraping the YouTube search results page. From datacenter IPs (such as Render's), YouTube may block requests, leaving search results empty. In that case, the search logic needs to be replaced with the official YouTube Data API.
+- **Some videos won't play**: Karaoke videos whose uploaders have disabled external embedding cannot be played in the player.
+- **No queue sharing between devices**: The queue lives only inside each browser. Multiple devices visiting the same URL each get their own independent karaoke session — "reserve on your phone, play on the TV" is not supported.
+- **First fanfare playback**: Due to browser autoplay policies, at least one click on the page (search, reserve, etc.) is required before the fanfare sound can play. In normal usage this unlocks naturally.
 
-## 🛠️ 기술 스택
+## 🛠️ Tech Stack
 
-- **백엔드**: Python 표준 라이브러리 (`http.server`, `socketserver` 멀티스레드) — 외부 의존성 없음
-- **프론트엔드**: 순수 HTML/CSS/JS 단일 페이지, YouTube IFrame Player API
-- **검색**: 유튜브 검색 결과 페이지 스크레이핑 (정규식 파싱)
+- **Backend**: Python standard library (`http.server`, multithreaded `socketserver`) — zero external dependencies
+- **Frontend**: Single-page vanilla HTML/CSS/JS with the YouTube IFrame Player API
+- **Search**: Scraping of YouTube search result pages (regex parsing)
 
-## 📄 라이선스
+## 📄 License
 
-개인 용도로 자유롭게 사용하세요. 유튜브 콘텐츠 이용 시 YouTube 서비스 약관을 준수해야 합니다.
+Free for personal use. When using YouTube content, please comply with the YouTube Terms of Service.
